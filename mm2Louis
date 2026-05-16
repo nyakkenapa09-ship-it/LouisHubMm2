@@ -1,151 +1,174 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
-local Window = Rayfield:CreateWindow({
-   Name = "LouisHub | Next-Gen MM2 Solution",
-   LoadingTitle = "LouisHub Execution",
-   LoadingSubtitle = "by rabung_01",
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "LouisHubConfigs",
-      FileName = "MM2_Main"
-   }
-})
-
--- // Variables
+   -- // LouisHub MM2 V2 Custom UI // --
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
-local ESP_Enabled = false
-local SilentAim_Enabled = false
 
--- // Fungsi: Dapatkan Warna Berdasarkan Peran
-local function getRoleColor(player)
-    local character = player.Character
-    local backpack = player:FindFirstChild("Backpack")
+-- // Variables // --
+local ESP_Enabled = false
+local GunESP_Enabled = false
+local SilentSheriff = false
+local SilentMurder = false
+
+-- // Custom UI System // --
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local StatusFrame = Instance.new("Frame")
+local FPSLabel = Instance.new("TextLabel")
+local PingLabel = Instance.new("TextLabel")
+
+-- GUI Properties
+ScreenGui.Name = "LouisHubV2"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ResetOnSpawn = false
+
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
+MainFrame.Size = UDim2.new(0, 450, 0, 280)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true -- Agar bisa digeser di HP/PC
+
+-- Border Neon Effect
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 2
+UIStroke.Color = Color3.fromRGB(0, 150, 255)
+UIStroke.Parent = MainFrame
+
+Title.Parent = MainFrame
+Title.Text = "LOUIS HUB MM2 V2"
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.BackgroundTransparency = 1
+
+-- Statistics (FPS & Ping)
+StatusFrame.Parent = MainFrame
+StatusFrame.Position = UDim2.new(0, 10, 0, 45)
+StatusFrame.Size = UDim2.new(0, 120, 0, 60)
+StatusFrame.BackgroundTransparency = 0.8
+StatusFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+
+FPSLabel.Parent = StatusFrame
+FPSLabel.Size = UDim2.new(1, 0, 0.5, 0)
+FPSLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+FPSLabel.Text = "FPS: 60"
+FPSLabel.TextSize = 14
+FPSLabel.Font = Enum.Font.Code
+
+PingLabel.Parent = StatusFrame
+PingLabel.Position = UDim2.new(0, 0, 0.5, 0)
+PingLabel.Size = UDim2.new(1, 0, 0.5, 0)
+PingLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+PingLabel.Text = "Ping: 0ms"
+PingLabel.TextSize = 14
+PingLabel.Font = Enum.Font.Code
+
+-- // Toggle Buttons Helper // --
+local function CreateToggle(name, pos, callback)
+    local Button = Instance.new("TextButton")
+    Button.Parent = MainFrame
+    Button.Position = pos
+    Button.Size = UDim2.new(0, 180, 0, 35)
+    Button.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    Button.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Button.Text = name .. ": OFF"
+    Button.Font = Enum.Font.Gotham
+    Button.TextSize = 14
     
-    -- Murderer (Merah)
-    if (backpack and backpack:FindFirstChild("Knife")) or (character and character:FindFirstChild("Knife")) then
-        return Color3.fromRGB(255, 0, 0)
-    end
-    
-    -- Sheriff & Hero
-    if (backpack and backpack:FindFirstChild("Gun")) or (character and character:FindFirstChild("Gun")) then
-        if player:FindFirstChild("RoleStat") and player.RoleStat.Value == "Sheriff" then
-            return Color3.fromRGB(0, 0, 255) -- Sheriff (Biru)
-        else
-            return Color3.fromRGB(255, 255, 0) -- Hero (Kuning)
-        end
-    end
-    
-    -- Innocent (Hijau)
-    return Color3.fromRGB(0, 255, 0)
+    local state = false
+    Button.MouseButton1Click:Connect(function()
+        state = not state
+        Button.Text = name .. ": " .. (state and "ON" or "OFF")
+        Button.TextColor3 = state and Color3.fromRGB(0, 255, 255) or Color3.fromRGB(200, 200, 200)
+        callback(state)
+    end)
 end
 
--- // Tab Utama
-local MainTab = Window:CreateTab("Main", 4483362458)
+-- // Creating Buttons // --
+CreateToggle("Player ESP", UDim2.new(0, 250, 0, 45), function(v) ESP_Enabled = v end)
+CreateToggle("Gun ESP", UDim2.new(0, 250, 0, 90), function(v) GunESP_Enabled = v end)
+CreateToggle("Silent Sheriff", UDim2.new(0, 250, 0, 135), function(v) SilentSheriff = v end)
+CreateToggle("Silent Murder", UDim2.new(0, 250, 0, 180), function(v) SilentMurder = v end)
 
-MainTab:CreateSection("Visual Features")
+-- // ESP LOGIC // --
+local function GetColor(p)
+    local char = p.Character
+    local bp = p:FindFirstChild("Backpack")
+    if char and (char:FindFirstChild("Knife") or (bp and bp:FindFirstChild("Knife"))) then return Color3.fromRGB(255, 0, 0) end -- Murder
+    if char and (char:FindFirstChild("Gun") or (bp and bp:FindFirstChild("Gun"))) then
+        if p:FindFirstChild("RoleStat") and p.RoleStat.Value == "Sheriff" then return Color3.fromRGB(0, 0, 255) end -- Sheriff
+        return Color3.fromRGB(255, 255, 0) -- Hero
+    end
+    return Color3.fromRGB(0, 255, 0) -- Innocent
+end
 
--- Toggle ESP
-MainTab:CreateToggle({
-   Name = "Enable Player ESP (Outline)",
-   CurrentValue = false,
-   Flag = "ESP_Toggle",
-   Callback = function(Value)
-      ESP_Enabled = Value
-      if not Value then
-          for _, p in pairs(Players:GetPlayers()) do
-              if p.Character and p.Character:FindFirstChild("LouisHub_ESP") then
-                  p.Character.LouisHub_ESP:Destroy()
-              end
-          end
-      end
-   end,
-})
-
--- Toggle Gun Drop ESP
-local GunESP_Enabled = false
-MainTab:CreateToggle({
-   Name = "Gun Drop ESP (Blue)",
-   CurrentValue = false,
-   Flag = "GunESP",
-   Callback = function(Value)
-      GunESP_Enabled = Value
-   end,
-})
-
-MainTab:CreateSection("Combat Features")
-
--- Toggle Silent Aim Murderer
-MainTab:CreateToggle({
-   Name = "Silent Aim (Target Murderer)",
-   CurrentValue = false,
-   Flag = "SilentAim",
-   Callback = function(Value)
-      SilentAim_Enabled = Value
-   end,
-})
-
--- // LOGIC ESP LOOP
 RunService.RenderStepped:Connect(function()
+    -- Update Stats
+    FPSLabel.Text = "FPS: " .. math.floor(workspace:GetRealPhysicsFPS())
+    PingLabel.Text = "Ping: " .. math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()) .. "ms"
+
     -- Player ESP
-    if ESP_Enabled then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local highlight = player.Character:FindFirstChild("LouisHub_ESP")
-                if not highlight then
-                    highlight = Instance.new("Highlight")
-                    highlight.Name = "LouisHub_ESP"
-                    highlight.Parent = player.Character
-                    highlight.FillOpacity = 0.5
-                    highlight.OutlineOpacity = 0
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local hl = p.Character:FindFirstChild("LHubHL")
+            if ESP_Enabled then
+                if not hl then
+                    hl = Instance.new("Highlight", p.Character)
+                    hl.Name = "LHubHL"
                 end
-                highlight.OutlineColor = getRoleColor(player)
-                highlight.FillColor = getRoleColor(player)
-            end
+                hl.OutlineColor = GetColor(p)
+                hl.FillColor = GetColor(p)
+                hl.FillOpacity = 0.5
+            elseif hl then hl:Destroy() end
         end
     end
-
-    -- Gun Drop ESP (Biru)
-    if GunESP_Enabled then
-        for _, obj in pairs(workspace:GetChildren()) do
-            if obj.Name == "GunDrop" then
-                local highlight = obj:FindFirstChild("LouisHub_GunESP")
-                if not highlight then
-                    highlight = Instance.new("Highlight")
-                    highlight.Name = "LouisHub_GunESP"
-                    highlight.Parent = obj
-                    highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Biru
-                    highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
+    
+    -- Gun Drop ESP (Blue)
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj.Name == "GunDrop" then
+            local hl = obj:FindFirstChild("LHubGun")
+            if GunESP_Enabled then
+                if not hl then
+                    hl = Instance.new("Highlight", obj)
+                    hl.Name = "LHubGun"
+                    hl.FillColor = Color3.fromRGB(0, 0, 255)
+                    hl.OutlineColor = Color3.fromRGB(0, 0, 255)
                 end
-            end
+            elseif hl then hl:Destroy() end
         end
     end
 end)
 
--- // LOGIC SILENT AIM (Metatable Hook)
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+-- // SILENT AIM LOGIC // --
+local old; old = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
     local args = {...}
-
-    if not checkcaller() and method == "FireServer" and self.Name == "ShootGun" and SilentAim_Enabled then
-        for _, v in pairs(Players:GetPlayers()) do
-            if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
-                -- Hanya target Murderer (yang bawa Knife)
-                if v.Character:FindFirstChild("Knife") or (v.Backpack and v.Backpack:FindFirstChild("Knife")) then
+    if not checkcaller() and method == "FireServer" then
+        if self.Name == "ShootGun" and SilentSheriff then
+            for _, v in pairs(Players:GetPlayers()) do
+                if v.Character and (v.Character:FindFirstChild("Knife") or (v.Backpack and v.Backpack:FindFirstChild("Knife"))) then
                     args[2] = v.Character.HumanoidRootPart.Position
-                    return oldNamecall(self, unpack(args))
+                    return old(self, unpack(args))
+                end
+            end
+        elseif self.Name == "ThrowKnife" and SilentMurder then
+            for _, v in pairs(Players:GetPlayers()) do
+                if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                    local isTarget = not (v.Character:FindFirstChild("Knife") or (v.Backpack and v.Backpack:FindFirstChild("Knife")))
+                    if isTarget then
+                        args[2] = v.Character.HumanoidRootPart.Position
+                        return old(self, unpack(args))
+                    end
                 end
             end
         end
     end
-    return oldNamecall(self, ...)
+    return old(self, ...)
 end)
 
-Rayfield:Notify({
-   Title = "LouisHub V2 Loaded",
-   Content = "ESP & Silent Aim is ready to use!",
-   Duration = 5,
-   Image = 4483362458,
-})
+print("LouisHub MM2 V2 Custom UI Loaded!")
