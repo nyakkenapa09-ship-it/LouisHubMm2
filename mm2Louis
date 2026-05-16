@@ -1,0 +1,82 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Fungsi untuk memberikan warna berdasarkan peran
+local function getRoleColor(player)
+    local character = player.Character
+    local backpack = player:FindFirstChild("Backpack")
+    
+    -- Check Murderer (Merah)
+    if (backpack and backpack:FindFirstChild("Knife")) or (character and character:FindFirstChild("Knife")) then
+        return Color3.fromRGB(255, 0, 0) -- Merah
+    end
+    
+    -- Check Sheriff (Biru)
+    if (backpack and backpack:FindFirstChild("Gun")) or (character and character:FindFirstChild("Gun")) then
+        -- Deteksi jika dia Hero (Kuning) atau Sheriff asli (Biru)
+        -- Di MM2, Sheriff asli punya "FakeGun" atau peran khusus, 
+        -- tapi standarnya kita bagi jadi Biru (Sheriff) dan Kuning (Hero) jika Innocent ambil pistol.
+        if player:FindFirstChild("RoleStat") and player.RoleStat.Value == "Sheriff" then
+            return Color3.fromRGB(0, 0, 255) -- Biru
+        else
+            return Color3.fromRGB(255, 255, 0) -- Kuning (Hero/Innocent with Gun)
+        end
+    end
+    
+    -- Default Innocent (Hijau)
+    return Color3.fromRGB(0, 255, 0) -- Hijau
+end
+
+-- Fungsi Apply ESP
+local function applyESP(player)
+    if player == LocalPlayer then return end
+
+    local function update()
+        local character = player.Character
+        if not character then return end
+
+        local highlight = character:FindFirstChild("LouisHub_ESP")
+        if not highlight then
+            highlight = Instance.new("Highlight")
+            highlight.Name = "LouisHub_ESP"
+            highlight.Parent = character
+            highlight.FillOpacity = 0.5
+            highlight.OutlineOpacity = 0
+        end
+
+        highlight.OutlineColor = getRoleColor(player)
+        highlight.FillColor = getRoleColor(player)
+    end
+
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if not player.Parent then
+            conn:Disconnect()
+        else
+            update()
+        end
+    end)
+end
+
+-- Gun Drop Detection (Biru)
+RunService.RenderStepped:Connect(function()
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj.Name == "GunDrop" or (obj:IsA("Model") and obj:FindFirstChild("Gun")) then
+            local highlight = obj:FindFirstChild("LouisHub_GunESP")
+            if not highlight then
+                highlight = Instance.new("Highlight")
+                highlight.Name = "LouisHub_GunESP"
+                highlight.Parent = obj
+                highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Biru
+                highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
+            end
+        end
+    end
+end)
+
+-- Initialize
+for _, p in pairs(Players:GetPlayers()) do applyESP(p) end
+Players.PlayerAdded:Connect(applyESP)
+
+print("LouisHub MM2 ESP: Colors Updated!")
