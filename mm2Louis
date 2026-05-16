@@ -1,82 +1,151 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "LouisHub | Next-Gen MM2 Solution",
+   LoadingTitle = "LouisHub Execution",
+   LoadingSubtitle = "by rabung_01",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "LouisHubConfigs",
+      FileName = "MM2_Main"
+   }
+})
+
+-- // Variables
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local ESP_Enabled = false
+local SilentAim_Enabled = false
 
--- Fungsi untuk memberikan warna berdasarkan peran
+-- // Fungsi: Dapatkan Warna Berdasarkan Peran
 local function getRoleColor(player)
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
     
-    -- Check Murderer (Merah)
+    -- Murderer (Merah)
     if (backpack and backpack:FindFirstChild("Knife")) or (character and character:FindFirstChild("Knife")) then
-        return Color3.fromRGB(255, 0, 0) -- Merah
+        return Color3.fromRGB(255, 0, 0)
     end
     
-    -- Check Sheriff (Biru)
+    -- Sheriff & Hero
     if (backpack and backpack:FindFirstChild("Gun")) or (character and character:FindFirstChild("Gun")) then
-        -- Deteksi jika dia Hero (Kuning) atau Sheriff asli (Biru)
-        -- Di MM2, Sheriff asli punya "FakeGun" atau peran khusus, 
-        -- tapi standarnya kita bagi jadi Biru (Sheriff) dan Kuning (Hero) jika Innocent ambil pistol.
         if player:FindFirstChild("RoleStat") and player.RoleStat.Value == "Sheriff" then
-            return Color3.fromRGB(0, 0, 255) -- Biru
+            return Color3.fromRGB(0, 0, 255) -- Sheriff (Biru)
         else
-            return Color3.fromRGB(255, 255, 0) -- Kuning (Hero/Innocent with Gun)
+            return Color3.fromRGB(255, 255, 0) -- Hero (Kuning)
         end
     end
     
-    -- Default Innocent (Hijau)
-    return Color3.fromRGB(0, 255, 0) -- Hijau
+    -- Innocent (Hijau)
+    return Color3.fromRGB(0, 255, 0)
 end
 
--- Fungsi Apply ESP
-local function applyESP(player)
-    if player == LocalPlayer then return end
+-- // Tab Utama
+local MainTab = Window:CreateTab("Main", 4483362458)
 
-    local function update()
-        local character = player.Character
-        if not character then return end
+MainTab:CreateSection("Visual Features")
 
-        local highlight = character:FindFirstChild("LouisHub_ESP")
-        if not highlight then
-            highlight = Instance.new("Highlight")
-            highlight.Name = "LouisHub_ESP"
-            highlight.Parent = character
-            highlight.FillOpacity = 0.5
-            highlight.OutlineOpacity = 0
+-- Toggle ESP
+MainTab:CreateToggle({
+   Name = "Enable Player ESP (Outline)",
+   CurrentValue = false,
+   Flag = "ESP_Toggle",
+   Callback = function(Value)
+      ESP_Enabled = Value
+      if not Value then
+          for _, p in pairs(Players:GetPlayers()) do
+              if p.Character and p.Character:FindFirstChild("LouisHub_ESP") then
+                  p.Character.LouisHub_ESP:Destroy()
+              end
+          end
+      end
+   end,
+})
+
+-- Toggle Gun Drop ESP
+local GunESP_Enabled = false
+MainTab:CreateToggle({
+   Name = "Gun Drop ESP (Blue)",
+   CurrentValue = false,
+   Flag = "GunESP",
+   Callback = function(Value)
+      GunESP_Enabled = Value
+   end,
+})
+
+MainTab:CreateSection("Combat Features")
+
+-- Toggle Silent Aim Murderer
+MainTab:CreateToggle({
+   Name = "Silent Aim (Target Murderer)",
+   CurrentValue = false,
+   Flag = "SilentAim",
+   Callback = function(Value)
+      SilentAim_Enabled = Value
+   end,
+})
+
+-- // LOGIC ESP LOOP
+RunService.RenderStepped:Connect(function()
+    -- Player ESP
+    if ESP_Enabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local highlight = player.Character:FindFirstChild("LouisHub_ESP")
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "LouisHub_ESP"
+                    highlight.Parent = player.Character
+                    highlight.FillOpacity = 0.5
+                    highlight.OutlineOpacity = 0
+                end
+                highlight.OutlineColor = getRoleColor(player)
+                highlight.FillColor = getRoleColor(player)
+            end
         end
-
-        highlight.OutlineColor = getRoleColor(player)
-        highlight.FillColor = getRoleColor(player)
     end
 
-    local conn
-    conn = RunService.RenderStepped:Connect(function()
-        if not player.Parent then
-            conn:Disconnect()
-        else
-            update()
-        end
-    end)
-end
-
--- Gun Drop Detection (Biru)
-RunService.RenderStepped:Connect(function()
-    for _, obj in pairs(workspace:GetChildren()) do
-        if obj.Name == "GunDrop" or (obj:IsA("Model") and obj:FindFirstChild("Gun")) then
-            local highlight = obj:FindFirstChild("LouisHub_GunESP")
-            if not highlight then
-                highlight = Instance.new("Highlight")
-                highlight.Name = "LouisHub_GunESP"
-                highlight.Parent = obj
-                highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Biru
-                highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
+    -- Gun Drop ESP (Biru)
+    if GunESP_Enabled then
+        for _, obj in pairs(workspace:GetChildren()) do
+            if obj.Name == "GunDrop" then
+                local highlight = obj:FindFirstChild("LouisHub_GunESP")
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "LouisHub_GunESP"
+                    highlight.Parent = obj
+                    highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Biru
+                    highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
+                end
             end
         end
     end
 end)
 
--- Initialize
-for _, p in pairs(Players:GetPlayers()) do applyESP(p) end
-Players.PlayerAdded:Connect(applyESP)
+-- // LOGIC SILENT AIM (Metatable Hook)
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
 
-print("LouisHub MM2 ESP: Colors Updated!")
+    if not checkcaller() and method == "FireServer" and self.Name == "ShootGun" and SilentAim_Enabled then
+        for _, v in pairs(Players:GetPlayers()) do
+            if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                -- Hanya target Murderer (yang bawa Knife)
+                if v.Character:FindFirstChild("Knife") or (v.Backpack and v.Backpack:FindFirstChild("Knife")) then
+                    args[2] = v.Character.HumanoidRootPart.Position
+                    return oldNamecall(self, unpack(args))
+                end
+            end
+        end
+    end
+    return oldNamecall(self, ...)
+end)
+
+Rayfield:Notify({
+   Title = "LouisHub V2 Loaded",
+   Content = "ESP & Silent Aim is ready to use!",
+   Duration = 5,
+   Image = 4483362458,
+})
