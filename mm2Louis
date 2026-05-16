@@ -1,11 +1,11 @@
--- // Load Rayfield Library (Premium UI & Loader) //
+-- // Load Rayfield Library //
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- // Create Window & Loader Animation //
+-- // Create Window & Loader //
 local Window = Rayfield:CreateWindow({
    Name = "Louis Hub MM2 V2",
    LoadingTitle = "Louis Hub Initializing...",
-   LoadingSubtitle = "Injecting Master ESP & Silent Aim...",
+   LoadingSubtitle = "Injecting Script & Bypassing...",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "LouisHubFolder",
@@ -19,18 +19,15 @@ local Window = Rayfield:CreateWindow({
    KeySystem = false
 })
 
--- // Core Variables //
+-- // Variables //
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
-local MasterESP_Enabled = false
+local ESP_Enabled = false
+local GunESP_Enabled = false
 local SilentSheriff = false
 local SilentMurder = false
-
--- Cache untuk bypass limit Highlight Roblox
-local ESP_Cache = {}
 
 -- // Tabs //
 local VisualTab = Window:CreateTab("Visuals (ESP)", 4483362458)
@@ -38,20 +35,23 @@ local CombatTab = Window:CreateTab("Combat (Aim)", 4483362458)
 local InfoTab = Window:CreateTab("Information", 4483362458)
 
 -- // VISUALS TAB //
-VisualTab:CreateSection("Master ESP Settings")
+VisualTab:CreateSection("ESP Settings")
 
 VisualTab:CreateToggle({
-   Name = "Master ESP (All-in-One)",
+   Name = "Enable Player ESP (Outline)",
    CurrentValue = false,
-   Flag = "MasterESP",
+   Flag = "PlayerESP",
    Callback = function(Value)
-      MasterESP_Enabled = Value
-      if not Value then
-          for target, hl in pairs(ESP_Cache) do
-              if hl then hl:Destroy() end
-          end
-          table.clear(ESP_Cache)
-      end
+      ESP_Enabled = Value
+   end,
+})
+
+VisualTab:CreateToggle({
+   Name = "Enable Gun Drop ESP (Blue)",
+   CurrentValue = false,
+   Flag = "GunESP",
+   Callback = function(Value)
+      GunESP_Enabled = Value
    end,
 })
 
@@ -75,89 +75,105 @@ CombatTab:CreateToggle({
 -- // INFO TAB //
 InfoTab:CreateSection("ESP Colors Guide")
 InfoTab:CreateParagraph({Title = "🔴 Red", Content = "Murderer"})
-InfoTab:CreateParagraph({Title = "🔵 Blue", Content = "Sheriff / Gun Drop"})
+InfoTab:CreateParagraph({Title = "🔵 Blue", Content = "Sheriff"})
 InfoTab:CreateParagraph({Title = "🟡 Yellow", Content = "Hero (Innocent picking up Gun)"})
 InfoTab:CreateParagraph({Title = "🟢 Green", Content = "Innocent"})
+InfoTab:CreateParagraph({Title = "🔫 Blue", Content = "Gun Drop"})
 
--- // HELPER FUNCTIONS //
-local function IsMurderer(player)
-    local char = player.Character
-    local bp = player:FindFirstChild("Backpack")
-    return (char and char:FindFirstChild("Knife")) or (bp and bp:FindFirstChild("Knife"))
-end
+-- ========================================== --
+-- // LOGIC ESP (DARI KODE YANG KAMU KIRIM) //
+-- ========================================== --
 
-local function IsArmed(player)
-    local char = player.Character
-    local bp = player:FindFirstChild("Backpack")
-    return (char and char:FindFirstChild("Gun")) or (bp and bp:FindFirstChild("Gun"))
-end
-
-local function GetRoleColor(player)
-    if IsMurderer(player) then return Color3.fromRGB(255, 0, 0) end -- Merah (Murderer)
-    if IsArmed(player) then
+local function getRoleColor(player)
+    local character = player.Character
+    local backpack = player:FindFirstChild("Backpack")
+    
+    -- Check Murderer (Merah)
+    if (backpack and backpack:FindFirstChild("Knife")) or (character and character:FindFirstChild("Knife")) then
+        return Color3.fromRGB(255, 0, 0) -- Merah
+    end
+    
+    -- Check Sheriff (Biru) / Hero (Kuning)
+    if (backpack and backpack:FindFirstChild("Gun")) or (character and character:FindFirstChild("Gun")) then
         if player:FindFirstChild("RoleStat") and player.RoleStat.Value == "Sheriff" then
-            return Color3.fromRGB(0, 0, 255) -- Biru (Sheriff Asli)
+            return Color3.fromRGB(0, 0, 255) -- Biru
         else
-            return Color3.fromRGB(255, 255, 0) -- Kuning (Hero)
-        end
-    end
-    return Color3.fromRGB(0, 255, 0) -- Hijau (Innocent)
-end
-
-local function CreateHighlight(target, color)
-    if not ESP_Cache[target] then
-        local hl = Instance.new("Highlight")
-        hl.Adornee = target -- Bypass Limit
-        hl.Parent = CoreGui -- Sembunyikan di CoreGui agar anti-error
-        hl.FillOpacity = 0.5
-        hl.OutlineOpacity = 1
-        hl.FillColor = color
-        hl.OutlineColor = color
-        ESP_Cache[target] = hl
-    else
-        ESP_Cache[target].FillColor = color
-        ESP_Cache[target].OutlineColor = color
-    end
-end
-
--- // LOGIC MASTER ESP //
-RunService.RenderStepped:Connect(function()
-    if MasterESP_Enabled then
-        -- 1. Player ESP
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                local hum = p.Character:FindFirstChild("Humanoid")
-                -- Jika player hidup
-                if hum and hum.Health > 0 then
-                    CreateHighlight(p.Character, GetRoleColor(p))
-                else
-                    -- Jika player mati, hapus ESP-nya
-                    if ESP_Cache[p.Character] then
-                        ESP_Cache[p.Character]:Destroy()
-                        ESP_Cache[p.Character] = nil
-                    end
-                end
-            end
-        end
-        
-        -- 2. Gun Drop ESP (Biru)
-        for _, obj in pairs(workspace:GetChildren()) do
-            if obj.Name == "GunDrop" then
-                CreateHighlight(obj, Color3.fromRGB(0, 0, 255)) -- Biru
-            end
+            return Color3.fromRGB(255, 255, 0) -- Kuning
         end
     end
     
-    -- Auto-Cleanup (Bersihkan sampah highlight jika objek hilang)
-    for target, hl in pairs(ESP_Cache) do
-        if not target or not target.Parent then
-            hl:Destroy()
-            ESP_Cache[target] = nil
+    -- Default Innocent (Hijau)
+    return Color3.fromRGB(0, 255, 0) -- Hijau
+end
+
+-- Fungsi Apply ESP untuk Player
+local function applyESP(player)
+    if player == LocalPlayer then return end
+
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if not player.Parent then
+            conn:Disconnect()
+            return
+        end
+
+        local character = player.Character
+        if not character then return end
+
+        local highlight = character:FindFirstChild("LouisHub_ESP")
+
+        -- Jika toggle ESP Nyala
+        if ESP_Enabled then
+            if not highlight then
+                highlight = Instance.new("Highlight")
+                highlight.Name = "LouisHub_ESP"
+                highlight.Parent = character
+                highlight.FillOpacity = 0.5
+                highlight.OutlineOpacity = 0
+            end
+            highlight.OutlineColor = getRoleColor(player)
+            highlight.FillColor = getRoleColor(player)
+        else
+            -- Jika toggle ESP Mati, hapus highlight
+            if highlight then
+                highlight:Destroy()
+            end
+        end
+    end)
+end
+
+-- Jalankan ESP Player
+for _, p in pairs(Players:GetPlayers()) do applyESP(p) end
+Players.PlayerAdded:Connect(applyESP)
+
+-- Gun Drop Detection (Biru)
+RunService.RenderStepped:Connect(function()
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj.Name == "GunDrop" or (obj:IsA("Model") and obj:FindFirstChild("Gun")) then
+            local highlight = obj:FindFirstChild("LouisHub_GunESP")
+            
+            if GunESP_Enabled then
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "LouisHub_GunESP"
+                    highlight.Parent = obj
+                    highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Biru
+                    highlight.OutlineColor = Color3.fromRGB(0, 0, 255)
+                    highlight.FillOpacity = 0.5
+                    highlight.OutlineOpacity = 0
+                end
+            else
+                if highlight then highlight:Destroy() end
+            end
         end
     end
 end)
 
--- // LOGIC SILENT AIM (100% ACCURACY VIA VECTOR3 REPLACEMENT) //
+
+-- ========================================== --
+-- // LOGIC SILENT AIM (100% ACCURACY) //
+-- ========================================== --
+
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
@@ -165,12 +181,15 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     
     if not checkcaller() and method == "FireServer" then
         
-        -- A. Silent Aim Sheriff -> Target Murderer
+        -- Silent Aim Sheriff -> Target Murderer
         if self.Name == "ShootGun" and SilentSheriff then
             for _, v in pairs(Players:GetPlayers()) do
                 if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
                     local hum = v.Character:FindFirstChild("Humanoid")
-                    if hum and hum.Health > 0 and IsMurderer(v) then
+                    -- Pengecekan Murderer
+                    local isTargetMurder = (v.Character:FindFirstChild("Knife") or (v.Backpack and v.Backpack:FindFirstChild("Knife")))
+                    
+                    if hum and hum.Health > 0 and isTargetMurder then
                         for i, arg in pairs(args) do
                             if typeof(arg) == "Vector3" then
                                 args[i] = v.Character.HumanoidRootPart.Position
@@ -181,12 +200,15 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                 end
             end
             
-        -- B. Silent Aim Murderer -> Target Selain Murderer (Sheriff/Hero/Innocent)
+        -- Silent Aim Murderer -> Target Selain Murderer
         elseif self.Name == "ThrowKnife" and SilentMurder then
             for _, v in pairs(Players:GetPlayers()) do
                 if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
                     local hum = v.Character:FindFirstChild("Humanoid")
-                    if hum and hum.Health > 0 and not IsMurderer(v) then 
+                    -- Pengecekan Bukan Murderer
+                    local isOtherMurder = (v.Character:FindFirstChild("Knife") or (v.Backpack and v.Backpack:FindFirstChild("Knife")))
+                    
+                    if hum and hum.Health > 0 and not isOtherMurder then 
                         for i, arg in pairs(args) do
                             if typeof(arg) == "Vector3" then
                                 args[i] = v.Character.HumanoidRootPart.Position
@@ -202,10 +224,9 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return oldNamecall(self, ...)
 end)
 
--- Notification
 Rayfield:Notify({
    Title = "Louis Hub Loaded!",
-   Content = "All features are injected and working 100%.",
+   Content = "ESP & Silent Aim is working properly.",
    Duration = 5,
    Image = 4483362458,
 })
