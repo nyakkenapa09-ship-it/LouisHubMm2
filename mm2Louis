@@ -1,164 +1,123 @@
--- ====================================================================
---         MM2 PREMIUM LOADER GUI + GOD MODE V2 (BY LOUISHUBMM2)
--- ====================================================================
-
--- 1. SISTEM LOADER GUI (Biar Keren Kek Script Berbayar)
-local ScreenGui = Instance.new("ScreenGui")
-local MainFrame = Instance.new("Frame")
-local Title = Instance.new("TextLabel")
-local Status = Instance.new("TextLabel")
-local BarBackground = Instance.new("Frame")
-local BarProgress = Instance.new("Frame")
-local UICorner = Instance.new("UICorner")
-local UICorner2 = Instance.new("UICorner")
-local UICorner3 = Instance.new("UICorner")
-
--- Properti GUI (Desain Dark Mode Keren)
-ScreenGui.Parent = game:GetService("CoreGui") -- Biar gak ilang pas mati
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-MainFrame.Name = "GeminiXBLoader"
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -60)
-MainFrame.Size = UDim2.new(0, 300, 0, 120)
-
-UICorner.CornerRadius = UDim.new(0, 10)
-UICorner.Parent = MainFrame
-
-Title.Name = "Title"
-Title.Parent = MainFrame
-Title.BackgroundTransparency = 1.0
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Font = Enum.Font.GothamBold
-Title.Text = "GeminiXD V2 [PREMIUM]"
-Title.TextColor3 = Color3.fromRGB(0, 120, 255) -- Warna Biru Neon Cyberpunk
-Title.TextSize = 20.0
-
-Status.Name = "Status"
-Status.Parent = MainFrame
-Status.BackgroundTransparency = 1.0
-Status.Position = UDim2.new(0, 0, 0, 40)
-Status.Size = UDim2.new(1, 0, 0, 30)
-Status.Font = Enum.Font.Gotham
-Status.Text = "Checking Game..."
-Status.TextColor3 = Color3.fromRGB(200, 200, 200)
-Status.TextSize = 14.0
-
-BarBackground.Name = "BarBackground"
-BarBackground.Parent = MainFrame
-BarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-BarBackground.Position = UDim2.new(0.05, 0, 0.7, 0)
-BarBackground.Size = UDim2.new(0.9, 0, 0, 15)
-
-UICorner2.CornerRadius = UDim.new(0, 5)
-UICorner2.Parent = BarBackground
-
-BarProgress.Name = "BarProgress"
-BarProgress.Parent = BarBackground
-BarProgress.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-BarProgress.Size = UDim2.new(0, 0, 1, 0) -- Mulai dari 0
-
-UICorner3.CornerRadius = UDim.new(0, 5)
-UICorner3.Parent = BarProgress
-
--- ANIMASI LOADING (Mengisi Bar & Ganti Teks Status)
-local function runLoader()
-    local stages = {
-        {time = 1.0, text = "Bypassing Anticheat...", progress = 0.25},
-        {time = 1.2, text = "Injecting Silent Aim Metatable...", progress = 0.60},
-        {time = 0.8, text = "Activating Blue Gun Tracker...", progress = 0.85},
-        {time = 0.5, text = "Done! Enjoy Bantai Server!", progress = 1.0}
-    }
-    
-    for _, stage in ipairs(stages) do
-        Status.Text = stage.text
-        BarProgress:TweenSize(UDim2.new(stage.progress, 0, 1, 0), "Out", "Quad", stage.time, true)
-        task.wait(stage.time)
-    end
-    
-    -- Hapus Loader GUI setelah selesai loading
-    ScreenGui:Destroy()
+-- Memastikan environment mendukung fungsi eksploitasi dasar
+if not hookmetamethod or not checkcaller or not getnamecallmethod then
+    print("Executor tidak mendukung fungsi eksploitasi esensial (hookmetamethod / checkcaller).")
+    return
 end
 
--- Jalankan Loader di Background Thread
-task.spawn(runLoader)
-task.wait(3.5) -- Nunggu animasi loading kelar sebelum script inti jalan
-
--- ====================================================================
--- KODE INTI SCRIPT MM2 (Silent Aim + Gun Tracker)
--- ====================================================================
-
-local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local UserInputService = game:GetService("UserInputService")
 
-_G.SilentAim = true
-_G.TeamCheck = true
+-- Konfigurasi Fitur
+local Config = {
+    Enabled = true,
+    TargetPart = "Head",       -- Mengincar Head / HumanoidRootPart
+    FOV = 250,                 -- Radius deteksi dalam pixel di layar
+    OnlyTargetMurderer = true  -- Mengunci pemain yang memegang/memiliki Knife
+}
 
--- GUN DROP TRACKER (Biru Tua)
-local function highlightGun(object)
-    if (object.Name == "GunDrop" or object.Name == "Normal") and not object:FindFirstChild("GunESP") then
-        if object:IsA("Model") or object:IsA("BasePart") then
-            local highlight = Instance.new("Highlight")
-            highlight.Name = "GunESP"
-            highlight.FillColor = Color3.fromRGB(0, 0, 139)
-            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-            highlight.FillTransparency = 0.3
-            highlight.Parent = object
+-- Fungsi spesifik untuk memeriksa apakah seorang player adalah Murderer
+local function isMurderer(player)
+    if not player or player == LocalPlayer then return false end
+    
+    -- Menggunakan pcall untuk mencegah error jika karakter belum termuat sepenuhnya
+    local success, result = pcall(function()
+        -- Cek apakah membawa pisau di karakter (sedang di-equip)
+        if player.Character and player.Character:FindFirstChild("Knife") then
+            return true
         end
-    end
+        -- Cek apakah menyimpan pisau di dalam tas (Backpack)
+        if player:FindFirstChild("Backpack") and player.Backpack:FindFirstChild("Knife") then
+            return true
+        end
+        return false
+    end)
+    
+    return success and result
 end
 
-Workspace.DescendantAdded:Connect(highlightGun)
-for _, obj in pairs(Workspace:GetDescendants()) do highlightGun(obj) end
+-- Fungsi mencari target berdasarkan FOV dan prioritas Murderer
+local function getClosestTarget()
+    local closest = nil
+    local maxDist = Config.FOV
 
--- SILENT AIM TARGETING
-local function getClosestPlayer()
-    local closestPlayer = nil
-    local shortestDistance = math.huge
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
-            local isMurderer = player.Backpack:FindFirstChild("Knife") or player.Character:FindFirstChild("Knife")
-            local isSheriff = player.Backpack:FindFirstChild("Gun") or player.Character:FindFirstChild("Gun")
-            local currentTool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            local amSheriff = currentTool and currentTool.Name == "Gun"
-            local isValidTarget = false
+    -- Validasi keamanan objek lokal pemain
+    if not LocalPlayer or not Camera then return nil end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(Config.TargetPart) then
             
-            if amSheriff then
-                if isMurderer then isValidTarget = true end
-            else
-                if _G.TeamCheck and isSheriff then isValidTarget = true
-                elseif not _G.TeamCheck or not isSheriff then isValidTarget = true end
+            -- Jika mode "OnlyTargetMurderer" aktif, lewati pemain yang bukan murderer
+            if Config.OnlyTargetMurderer and not isMurderer(player) then
+                continue
             end
 
-            if isValidTarget then
-                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                if distance < shortestDistance then
-                    closestPlayer = player
-                    shortestDistance = distance
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local part = player.Character[Config.TargetPart]
+                
+                -- Menggunakan WorldToViewportPoint dengan pcall untuk stabilitas render 3D ke 2D
+                local success, screenPos, onScreen = pcall(function()
+                    return Camera:WorldToViewportPoint(part.Position)
+                end)
+
+                if success and onScreen then
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+
+                    -- Mengunci target terdekat yang valid di dalam radius FOV
+                    if dist < maxDist then
+                        closest = part
+                        maxDist = dist
+                    end
                 end
             end
         end
     end
-    return closestPlayer
+    return closest
 end
 
--- METATABLE HOOKING FOR SILENT AIM
-local mt = getrawmetatable(game)
-local oldNamecall = mt.__namecall
-local oldIndex = mt.__index
-setreadonly(mt, false)
+-- Hooking Metamethod __index untuk memanipulasi Properti Mouse (Hit / Target)
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", function(self, key)
+    -- Fix bug: Validasi strict 'self' harus berupa Instance dan nama property valid string
+    if Config.Enabled and not checkcaller() and typeof(self) == "Instance" and typeof(key) == "string" then
+        if self:IsA("Mouse") and (key == "Hit" or key == "Target") then
+            local target = getClosestTarget()
+            if target then
+                if key == "Hit" then
+                    return target.CFrame
+                elseif key == "Target" then
+                    return target
+                end
+            end
+        end
+    end
+    return oldIndex(self, key)
+end)
 
-mt.__namecall = newcclosure(function(self, ...)
+-- Hooking Metamethod __namecall untuk membelokkan arah tembakan Raycast ke Murderer
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
     local args = {...}
-    if _G.SilentAim and (method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRay" or method == "Raycast") then
-        local target = getClosestPlayer()
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            if args[1] then
-                local origin = args[1].Origin
-                args[1] = Ray.new(origin, (target.Character.HumanoidRootPart.Position - origin).Unit * 1000)
+
+    if Config.Enabled and not checkcaller() and typeof(method) == "string" then
+        -- Mencegat fungsi Raycast umum yang sering dipakai script senjata revolver/pistol
+        if method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList" or method == "raycast" or method == "Raycast" then
+            local target = getClosestTarget()
+            if target then
+                local origin = Camera.CFrame.Position
+                local direction = (target.Position - origin).Unit * 1000
+                
+                -- Fix bug: Penyesuaian argumen array berdasarkan method modern vs legacy
+                if method == "Raycast" and #args >= 2 then
+                    args[2] = direction
+                elseif (method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList") and #args >= 1 then
+                    args[1] = Ray.new(origin, direction)
+                end
+                
                 return oldNamecall(self, unpack(args))
             end
         end
@@ -166,14 +125,4 @@ mt.__namecall = newcclosure(function(self, ...)
     return oldNamecall(self, ...)
 end)
 
-mt.__index = newcclosure(function(self, index)
-    if _G.SilentAim and tostring(self) == "Mouse" and index == "Hit" then
-        local target = getClosestPlayer()
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            return target.Character.HumanoidRootPart.CFrame
-        end
-    end
-    return oldIndex(self, index)
-end)
-
-setreadonly(mt, true)
+print("Silent Aim MM2 (Anti-Murderer) v2.0 - Stabil dan Terfiksasi.")
