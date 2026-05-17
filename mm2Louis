@@ -1,128 +1,69 @@
--- Memastikan environment mendukung fungsi eksploitasi dasar
-if not hookmetamethod or not checkcaller or not getnamecallmethod then
-    print("Executor tidak mendukung fungsi eksploitasi esensial (hookmetamethod / checkcaller).")
-    return
-end
+-- Memuat Library Rayfield
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local UserInputService = game:GetService("UserInputService")
+local Window = Rayfield:CreateWindow({
+   Name = "Aurora Lite | MM2 Private Lab",
+   LoadingTitle = "Aurora Lite Initializing...",
+   LoadingSubtitle = "by Sky",
+   ConfigurationSaving = { Enabled = false }
+})
 
--- Konfigurasi Fitur
-local Config = {
-    Enabled = true,
-    TargetPart = "Head",       -- Mengincar Head / HumanoidRootPart
-    FOV = 250,                 -- Radius deteksi dalam pixel di layar
-    OnlyTargetMurderer = true  -- Mengunci pemain yang memegang/memiliki Knife
-}
+local Tab = Window:CreateTab("Sheriff Tools", nil) -- Tab untuk Sheriff
 
--- Fungsi spesifik untuk memeriksa apakah seorang player adalah Murderer
-local function isMurderer(player)
-    if not player or player == LocalPlayer then return false end
+-- Variabel status global
+local AutoGrabStatus = false
+
+-- Fungsi inti Grab Gun dengan proteksi nil-checking
+local function grabGun()
+    local LocalPlayer = game.Players.LocalPlayer
+    local Workspace = game:GetService("Workspace")
     
-    -- Menggunakan pcall untuk mencegah error jika karakter belum termuat sepenuhnya
-    local success, result = pcall(function()
-        -- Cek apakah membawa pisau di karakter (sedang di-equip)
-        if player.Character and player.Character:FindFirstChild("Knife") then
-            return true
-        end
-        -- Cek apakah menyimpan pisau di dalam tas (Backpack)
-        if player:FindFirstChild("Backpack") and player.Backpack:FindFirstChild("Knife") then
-            return true
-        end
-        return false
-    end)
+    -- Pastikan karakter pemain dan HumanoidRootPart tersedia sebelum cek jarak
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then 
+        return 
+    end
     
-    return success and result
+    local hrp = LocalPlayer.Character.HumanoidRootPart
+    
+    for _, item in ipairs(Workspace:GetDescendants()) do
+        if item.Name == "Gun" and item:IsA("Tool") and item:FindFirstChild("Handle") then
+            local dist = (hrp.Position - item.Handle.Position).Magnitude
+            if dist < 100 then -- Radius deteksi (studs)
+                -- Proteksi eksistensi fungsi executor
+                if firetouchinterest then
+                    firetouchinterest(hrp, item.Handle, 0)
+                    task.wait(0.05) -- Delay super tipis agar registrasi touch stabil
+                    firetouchinterest(hrp, item.Handle, 1)
+                end
+            end
+        end
+    end
 end
 
--- Fungsi mencari target berdasarkan FOV dan prioritas Murderer
-local function getClosestTarget()
-    local closest = nil
-    local maxDist = Config.FOV
-
-    -- Validasi keamanan objek lokal pemain
-    if not LocalPlayer or not Camera then return nil end
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(Config.TargetPart) then
-            
-            -- Jika mode "OnlyTargetMurderer" aktif, lewati pemain yang bukan murderer
-            if Config.OnlyTargetMurderer and not isMurderer(player) then
-                continue
+-- Menambahkan Toggle ke UI Rayfield
+Tab:CreateToggle({
+   Name = "Auto Grab Gun",
+   CurrentValue = false,
+   Flag = "GrabGunToggle",
+   Callback = function(Value)
+      AutoGrabStatus = Value
+      
+      if AutoGrabStatus then
+         print("Aurora: Auto Grab Gun Enabled.")
+         
+         -- FIX: Jalankan loop di thread terpisah (task.spawn) agar UI tidak freeze
+         task.spawn(function()
+            while AutoGrabStatus do
+               -- Menggunakan pcall agar jika pistol tiba-tiba hilang/destroyed saat dicek, script tidak eror
+               pcall(grabGun)
+               task.wait(0.5) -- Interval pengecekan ulang
             end
+         end)
+      else
+         print("Aurora: Auto Grab Gun Disabled.")
+      end
+   end
+})
 
-            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                local part = player.Character[Config.TargetPart]
-                
-                -- Menggunakan WorldToViewportPoint dengan pcall untuk stabilitas render 3D ke 2D
-                local success, screenPos, onScreen = pcall(function()
-                    return Camera:WorldToViewportPoint(part.Position)
-                end)
-
-                if success and onScreen then
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-
-                    -- Mengunci target terdekat yang valid di dalam radius FOV
-                    if dist < maxDist then
-                        closest = part
-                        maxDist = dist
-                    end
-                end
-            end
-        end
-    end
-    return closest
-end
-
--- Hooking Metamethod __index untuk memanipulasi Properti Mouse (Hit / Target)
-local oldIndex
-oldIndex = hookmetamethod(game, "__index", function(self, key)
-    -- Fix bug: Validasi strict 'self' harus berupa Instance dan nama property valid string
-    if Config.Enabled and not checkcaller() and typeof(self) == "Instance" and typeof(key) == "string" then
-        if self:IsA("Mouse") and (key == "Hit" or key == "Target") then
-            local target = getClosestTarget()
-            if target then
-                if key == "Hit" then
-                    return target.CFrame
-                elseif key == "Target" then
-                    return target
-                end
-            end
-        end
-    end
-    return oldIndex(self, key)
-end)
-
--- Hooking Metamethod __namecall untuk membelokkan arah tembakan Raycast ke Murderer
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-
-    if Config.Enabled and not checkcaller() and typeof(method) == "string" then
-        -- Mencegat fungsi Raycast umum yang sering dipakai script senjata revolver/pistol
-        if method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList" or method == "raycast" or method == "Raycast" then
-            local target = getClosestTarget()
-            if target then
-                local origin = Camera.CFrame.Position
-                local direction = (target.Position - origin).Unit * 1000
-                
-                -- Fix bug: Penyesuaian argumen array berdasarkan method modern vs legacy
-                if method == "Raycast" and #args >= 2 then
-                    args[2] = direction
-                elseif (method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList") and #args >= 1 then
-                    args[1] = Ray.new(origin, direction)
-                end
-                
-                return oldNamecall(self, unpack(args))
-            end
-        end
-    end
-    return oldNamecall(self, ...)
-end)
-
-print("Silent Aim MM2 (Anti-Murderer) v2.0 - Stabil dan Terfiksasi.")
+Rayfield:LoadConfiguration()
+print("Aurora Lite: UI Loaded and Ready.")
