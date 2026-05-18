@@ -1,69 +1,96 @@
--- Memuat Library Rayfield
+-- [[ MM2 SHERIFF SILENT AIM - DELTA NO LAG OPTIMIZED ]] --
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Aurora Lite | MM2 Private Lab",
-   LoadingTitle = "Aurora Lite Initializing...",
-   LoadingSubtitle = "by Sky",
-   ConfigurationSaving = { Enabled = false }
+   Name = "ToBlUt GpT V1 | MM2 Delta Smooth",
+   LoadingTitle = "Mengoptimalkan Performa...",
+   LoadingSubtitle = "by @barzpuqi",
+   ConfigurationSaving = { Enabled = false },
+   Discord = { Enabled = false },
+   KeySystem = false
 })
 
-local Tab = Window:CreateTab("Sheriff Tools", nil) -- Tab untuk Sheriff
+-- Variables & Cache untuk hemat memori
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local SilentAimEnabled = false
 
--- Variabel status global
-local AutoGrabStatus = false
+local lastCheck = 0
+local cachedMurderer = nil
 
--- Fungsi inti Grab Gun dengan proteksi nil-checking
-local function grabGun()
-    local LocalPlayer = game.Players.LocalPlayer
-    local Workspace = game:GetService("Workspace")
-    
-    -- Pastikan karakter pemain dan HumanoidRootPart tersedia sebelum cek jarak
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then 
-        return 
+-- Fungsi Nyari Murderer dengan Throttling (Gak ngecek tiap frame biar ga lag)
+local function GetMurderer()
+    local currentTime = os.clock()
+    -- Cek ulang setiap 0.5 detik sekali, bukan setiap milidetik
+    if currentTime - lastCheck < 0.5 and cachedMurderer and cachedMurderer.Parent then
+        return cachedMurderer
     end
     
-    local hrp = LocalPlayer.Character.HumanoidRootPart
+    lastCheck = currentTime
+    cachedMurderer = nil
     
-    for _, item in ipairs(Workspace:GetDescendants()) do
-        if item.Name == "Gun" and item:IsA("Tool") and item:FindFirstChild("Handle") then
-            local dist = (hrp.Position - item.Handle.Position).Magnitude
-            if dist < 100 then -- Radius deteksi (studs)
-                -- Proteksi eksistensi fungsi executor
-                if firetouchinterest then
-                    firetouchinterest(hrp, item.Handle, 0)
-                    task.wait(0.05) -- Delay super tipis agar registrasi touch stabil
-                    firetouchinterest(hrp, item.Handle, 1)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if player.Character:FindFirstChild("Knife") or player.Backpack:FindFirstChild("Knife") then
+                cachedMurderer = player.Character
+                return cachedMurderer
+            end
+        end
+    end
+    return nil
+end
+
+-- __index Hook Ringan (Hanya memanipulasi Input Mouse saat menembak)
+local OldIndex
+OldIndex = hookmetamethod(game, "__index", function(Self, Property)
+    -- Validasi cepat: abaikan jika fitur mati atau bukan objek Mouse
+    if not SilentAimEnabled or Self ~= Mouse then 
+        return OldIndex(Self, Property) 
+    end
+    
+    if Property == "Hit" or Property == "Target" then
+        -- Cek instan apakah player megang senjata
+        local Char = LocalPlayer.Character
+        if Char and (Char:FindFirstChild("Gun") or LocalPlayer.Backpack:FindFirstChild("Gun")) then
+            local Murderer = GetMurderer()
+            if Murderer and Murderer:FindFirstChild("HumanoidRootPart") then
+                if Property == "Hit" then
+                    return Murderer.HumanoidRootPart.CFrame
+                elseif Property == "Target" then
+                    return Murderer.HumanoidRootPart
                 end
             end
         end
     end
-end
+    
+    return OldIndex(Self, Property)
+end)
 
--- Menambahkan Toggle ke UI Rayfield
-Tab:CreateToggle({
-   Name = "Auto Grab Gun",
+-- Main Tab UI
+local MainTab = Window:CreateTab("Performance Features", 4483362458)
+
+local Toggle = MainTab:CreateToggle({
+   Name = "Smooth Silent Aim (Sheriff)",
    CurrentValue = false,
-   Flag = "GrabGunToggle",
+   Flag = "SmoothAimToggle",
    Callback = function(Value)
-      AutoGrabStatus = Value
-      
-      if AutoGrabStatus then
-         print("Aurora: Auto Grab Gun Enabled.")
-         
-         -- FIX: Jalankan loop di thread terpisah (task.spawn) agar UI tidak freeze
-         task.spawn(function()
-            while AutoGrabStatus do
-               -- Menggunakan pcall agar jika pistol tiba-tiba hilang/destroyed saat dicek, script tidak eror
-               pcall(grabGun)
-               task.wait(0.5) -- Interval pengecekan ulang
-            end
-         end)
-      else
-         print("Aurora: Auto Grab Gun Disabled.")
+      SilentAimEnabled = Value
+      if Value then
+          Rayfield:Notify({
+             Title = "Sistem Stabil",
+             Content = "Silent Aim Aktif Tanpa Lag!",
+             Duration = 3,
+             Image = 4483362458,
+          })
       end
-   end
+   end,
 })
 
-Rayfield:LoadConfiguration()
-print("Aurora Lite: UI Loaded and Ready.")
+Rayfield:Notify({
+   Title = "Injeksi Berhasil",
+   Content = "FPS Aman, Siap Main Boss!",
+   Duration = 5,
+   Image = 4483362458,
+})
